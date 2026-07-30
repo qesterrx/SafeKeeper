@@ -1,0 +1,25 @@
+{"level":"debug","time":"2026-07-28T13:53:24+03:00","message":"ServerListForm.RedrawLoop START"}
+{"level":"debug","time":"2026-07-28T13:53:24+03:00","message":"ServerListForm.RedrawLoop STOP"}
+{"level":"debug","time":"2026-07-28T13:53:24+03:00","message":"main StartTUIApp START"}
+{"level":"debug","time":"2026-07-28T13:53:24+03:00","message":"ListRepository.BackgroundProcess START"}
+{"level":"debug","time":"2026-07-28T13:53:39+03:00","message":"Reposityory.BackgroundProcess START"}
+{"level":"debug","time":"2026-07-28T13:53:50+03:00","message":"BackgrouReposityory.backgroundReader START"}
+{"level":"debug","time":"2026-07-28T13:53:50+03:00","message":"Reposityory.backgroundWriter START"}
+{"level":"debug","time":"2026-07-28T13:54:10+03:00","message":"Из очереди взят объект 43 со статусом RECEAVING"}
+{"level":"debug","time":"2026-07-28T13:54:12+03:00","message":"Получили 7920064 байт"}
+{"level":"debug","time":"2026-07-28T13:54:12+03:00","message":"Из очереди взят объект 44 со статусом RECEAVING"}
+{"level":"debug","time":"2026-07-28T13:54:12+03:00","message":"Получили 31 байт"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"SignalWorkerLoop ctx.Done()"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"Reposityory.backgroundWriter ctx.Done"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"BackgrouReposityory.backgroundReader ctx.Done"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"BackgrouReposityory.backgroundReader STOP"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"BackgReposityory.backgroundWriterroundWriter STOP"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"StopTUIApp start"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"ListRepository.BackgroundProcess ctx.Done()"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"ListRepository.BackgroundProcess STOP"}
+{"level":"debug","time":"2026-07-28T13:54:33+03:00","message":"ServerListForm.RedrawLoop ctx.Done()"}
+{"level":"debug","time":"2026-07-28T13:54:35+03:00","message":"Wait fin gorutine - too long"}
+{"level":"debug","time":"2026-07-28T13:54:35+03:00","message":"StopTUIAppFinish"}
+{"level":"debug","time":"2026-07-28T13:54:35+03:00","message":"main StartTUIApp START"}
+{"level":"error","time":"2026-07-28T13:54:35+03:00","message":"Приложение экстренно остановлено"}
+{"level":"info","time":"2026-07-28T13:54:35+03:00","message":"Приложение завершено"}
