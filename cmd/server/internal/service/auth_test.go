@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
@@ -61,7 +62,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 func TestAuthService_Register_DuplicateUser(t *testing.T) {
 	mockStorage := &MockAuthStorage{
 		NewUserFunc: func(ctx context.Context, login, password, aestoken string) error {
-			return lerrors.NewLEUserAlreadyExists("user exists")
+			return lerrors.NewLEUserAlreadyExists(fmt.Errorf("user exists"), "user exists")
 		},
 	}
 	service, err := NewAuthService(mockStorage)
@@ -116,7 +117,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 func TestAuthService_Login_UserNotFound(t *testing.T) {
 	mockStorage := &MockAuthStorage{
 		GetUserByLoginFunc: func(ctx context.Context, login string) (*model.DBUser, error) {
-			return nil, lerrors.NewLEUserWrongPassword("user not found")
+			return nil, lerrors.NewLEUserWrongPassword(fmt.Errorf("user not found"), "user not found")
 		},
 	}
 	service, err := NewAuthService(mockStorage)

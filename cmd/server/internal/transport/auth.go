@@ -6,6 +6,7 @@ package transport
 import (
 	"context"
 
+	"github.com/qesterrx/SafeKeeper/cmd/server/internal/config"
 	pb "github.com/qesterrx/SafeKeeper/proto/auth"
 )
 
@@ -24,6 +25,7 @@ type AuthService interface {
 type AuthServer struct {
 	pb.UnimplementedAuthServiceServer
 	auth AuthService
+	cfg  *config.Configuration
 }
 
 // NewAuthServer создаёт новый экземпляр AuthServer
@@ -33,8 +35,8 @@ type AuthServer struct {
 //
 // Возвращает:
 //   - *AuthServer: указатель на созданный gRPC-сервер
-func NewAuthServer(authService AuthService) *AuthServer {
-	return &AuthServer{auth: authService}
+func NewAuthServer(authService AuthService, cfg *config.Configuration) *AuthServer {
+	return &AuthServer{auth: authService, cfg: cfg}
 }
 
 // Register обрабатывает gRPC-запрос на регистрацию нового пользователя

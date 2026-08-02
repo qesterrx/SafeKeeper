@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -19,6 +22,7 @@ import (
 	pbauth "github.com/qesterrx/SafeKeeper/proto/auth"
 	pbdata "github.com/qesterrx/SafeKeeper/proto/data"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 func main() {
@@ -38,24 +42,48 @@ func main() {
 	//Подключение postgresql
 	storage, err := storage.NewStoragePGSQL(config.DatabaseDSN)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal(err)
 	}
 
 	//Создаем сервис AUTH
 	authService, err := service.NewAuthService(storage)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal(err)
 	}
 
 	//Создаем сервис DATA
 	dataService, err := service.NewDataService(storage)
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Fatal(err)
 	}
 
 	//JWT
 	jwta.InitJWTConfig(config.JWTSecret, 1*time.Hour, "SafeKeeperServer")
 	jwtInterceptor := interceptor.NewJWTServerInterceptor(authService)
+
+	//Сертификаты TLS
+	// Загружаем сертификат сервера
+	serverCert, err := tls.LoadX509KeyPair(config.GetServerCSR(), config.GetServerKEY())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Загружаем CA сертификат
+	caCert, err := os.ReadFile(config.GetCertCA())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCert) {
+		log.Fatal(fmt.Errorf("ошибка добавления CA сертификата"))
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.NoClientCert,
+		MinVersion:   tls.VersionTLS13,
+	}
 
 	// Нужно определить порт для сервера
 	listen, err := net.Listen("tcp", config.ServerHost.String())
@@ -66,6 +94,7 @@ func main() {
 
 	// Создаем gRPC сервер
 	s := grpc.NewServer(
+		grpc.Creds(credentials.NewTLS(tlsConfig)),
 		grpc.ChainUnaryInterceptor(
 			interceptor.UnaryLogInterceptor,
 			jwtInterceptor.Unary(),
@@ -77,7 +106,7 @@ func main() {
 	)
 
 	// Регистрируем сервис
-	pbauth.RegisterAuthServiceServer(s, transport.NewAuthServer(authService))
+	pbauth.RegisterAuthServiceServer(s, transport.NewAuthServer(authService, config))
 	pbdata.RegisterSafeDataServiceServer(s, transport.NewSafeDataServer(dataService))
 
 	logger.Log.Info("Cервер gRPC начал работу по адресу %s", config.ServerHost.String())

@@ -35,36 +35,37 @@ const (
 type LError struct {
 	Code    Status
 	Message string
+	Err     error
 }
 
 // Error реализует интерфейс error для LError
 // Возвращает строковое представление ошибки в формате "[код] сообщение"
 // Используется для логирования и отладки
 func (se LError) Error() string {
-	return fmt.Sprintf("[%d] %s", se.Code, se.Message)
+	return fmt.Sprintf("[%d] %s \n %s", se.Code, se.Message, se.Err.Error())
 }
 
 // NewLEInternalError создаёт новую ошибку с кодом StInternalError
-func NewLEInternalError(msg string) *LError {
-	return &LError{Code: StInternalError, Message: msg}
+func NewLEInternalError(err error, msg string) *LError {
+	return &LError{Code: StInternalError, Message: msg, Err: err}
 }
 
 // NewLEInternalError создаёт новую ошибку с кодом StUserWrongPassword
-func NewLEUserWrongPassword(msg string) *LError {
-	return &LError{Code: StUserWrongPassword, Message: msg}
+func NewLEUserWrongPassword(err error, msg string) *LError {
+	return &LError{Code: StUserWrongPassword, Message: msg, Err: err}
 }
 
 // NewLEInternalError создаёт новую ошибку с кодом StUserAlreadyExists
-func NewLEUserAlreadyExists(msg string) *LError {
-	return &LError{Code: StUserAlreadyExists, Message: msg}
+func NewLEUserAlreadyExists(err error, msg string) *LError {
+	return &LError{Code: StUserAlreadyExists, Message: msg, Err: err}
 }
 
 // NewLEInternalError создаёт новую ошибку с кодом StObjectNotFound
-func NewLEObjectNotFound(msg string) *LError {
-	return &LError{Code: StObjectNotFound, Message: msg}
+func NewLEObjectNotFound(err error, msg string) *LError {
+	return &LError{Code: StObjectNotFound, Message: msg, Err: err}
 }
 
 // NewLEInternalError создаёт новую ошибку с кодом StObjectTooOld
-func NewLEObjectTooOld(msg string) *LError {
-	return &LError{Code: StObjectTooOld, Message: msg}
+func NewLEObjectTooOld(err error, msg string) *LError {
+	return &LError{Code: StObjectTooOld, Message: msg, Err: err}
 }

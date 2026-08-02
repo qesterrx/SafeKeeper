@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/interceptor"
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/model"
@@ -14,27 +13,31 @@ import (
 	pb "github.com/qesterrx/SafeKeeper/proto/data"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// VG_VERSION определяет версию клиента для передачи на сервер для отслеживания совместимости клиент-серверных версий
-var VG_VERSION int32 = 1
 
 // GRPCConnect представляет gRPC-соединение с сервером для выполнения операций с объектами SafeData
 // Обеспечивает потоковую передачу данных и обработку ошибок
 type GRPCConnect struct {
 	conn   *grpc.ClientConn
 	client pb.SafeDataServiceClient
+
+	clientVer int32
 }
 
 // NewGRPCConnect создает новое gRPC-соединение с сервером.
 // Настраивает JWT-интерцепторы для аутентификации всех запросов
-func NewGRPCConnect(addr, jwt, cert string) (*GRPCConnect, error) {
+func NewGRPCConnect(addr, jwt string, clientVer int32) (*GRPCConnect, error) {
 
 	grpcc := GRPCConnect{}
+
+	//Сертификат
+	cred, err := getCredentials()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка соединения с сервером: %w", err)
+	}
 
 	//JWTA
 	jwtInterceptor := interceptor.NewJWTClientInterceptor(jwt)
@@ -42,7 +45,7 @@ func NewGRPCConnect(addr, jwt, cert string) (*GRPCConnect, error) {
 	//Клиент
 	conn, err := grpc.NewClient(
 		addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(*cred),
 		grpc.WithUnaryInterceptor(jwtInterceptor.Unary()),
 		grpc.WithStreamInterceptor(jwtInterceptor.Stream()),
 	)
@@ -78,7 +81,7 @@ func (grpcc *GRPCConnect) NewSafeData(ctx context.Context, obj *model.TransportO
 		Name:     proto.String(obj.Name),
 		Kind:     proto.String(obj.Kind),
 		Checksum: proto.String(obj.CheckSum),
-		Client:   proto.Int32(VG_VERSION),
+		Client:   proto.Int32(grpcc.clientVer),
 	}
 
 	req := &data.NewSafeDataRequest{}
@@ -113,7 +116,6 @@ func (grpcc *GRPCConnect) NewSafeData(ctx context.Context, obj *model.TransportO
 			offset = offset + n
 			setProcessInfo(fmt.Sprintf("Отправка %d, %d, %.2f", offset, len, float32(offset)/float32(len)*100))
 
-			time.Sleep(10 * time.Millisecond)
 		}
 
 		if err == io.EOF {
@@ -153,7 +155,7 @@ func (grpcc *GRPCConnect) EditSafeData(ctx context.Context, obj *model.Transport
 		Kind:     proto.String(obj.Kind),
 		Version:  proto.Int32(obj.Version),
 		Checksum: proto.String(obj.CheckSum),
-		Client:   proto.Int32(VG_VERSION),
+		Client:   proto.Int32(grpcc.clientVer),
 	}
 
 	req := &data.EditSafeDataRequest{}
@@ -188,7 +190,6 @@ func (grpcc *GRPCConnect) EditSafeData(ctx context.Context, obj *model.Transport
 			offset = offset + n
 			setProcessInfo(fmt.Sprintf("Отправка %d, %d, %.2f", offset, len, float32(offset)/float32(len)*100))
 
-			time.Sleep(10 * time.Millisecond)
 		}
 
 		if err == io.EOF {

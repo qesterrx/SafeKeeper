@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -151,7 +152,7 @@ func TestDataService_NewSafeObject_Success(t *testing.T) {
 func TestDataService_NewSafeObject_StorageError(t *testing.T) {
 	mockStorage := &MockDataStorage{
 		NewObjectFunc: func(ctx context.Context, object *model.DBObject) (int32, error) {
-			return 0, lerrors.NewLEInternalError("database error")
+			return 0, lerrors.NewLEInternalError(fmt.Errorf("database error inside"), "database error")
 		},
 	}
 
@@ -292,7 +293,7 @@ func TestDataService_EditSafeObject_VersionConflict(t *testing.T) {
 func TestDataService_EditSafeObject_StorageError(t *testing.T) {
 	mockStorage := &MockDataStorage{
 		GetObjectDescFunc: func(ctx context.Context, id, user int32) (*model.DBObject, error) {
-			return nil, lerrors.NewLEInternalError("database error")
+			return nil, lerrors.NewLEInternalError(fmt.Errorf("database error inside"), "database error")
 		},
 	}
 
@@ -373,7 +374,7 @@ func TestDataService_DelSafeObject_VersionConflict(t *testing.T) {
 func TestDataService_DelSafeObject_ObjectNotFound(t *testing.T) {
 	mockStorage := &MockDataStorage{
 		GetObjectDescFunc: func(ctx context.Context, id, user int32) (*model.DBObject, error) {
-			return nil, lerrors.NewLEObjectNotFound("object not found")
+			return nil, lerrors.NewLEObjectNotFound(fmt.Errorf("object not found inside"), "object not found")
 		},
 	}
 
@@ -457,7 +458,7 @@ func TestDataService_GetSafeObject_Deleted(t *testing.T) {
 func TestDataService_GetSafeObject_NotFound(t *testing.T) {
 	mockStorage := &MockDataStorage{
 		GetObjectDescFunc: func(ctx context.Context, id, user int32) (*model.DBObject, error) {
-			return nil, lerrors.NewLEObjectNotFound("object not found")
+			return nil, lerrors.NewLEObjectNotFound(fmt.Errorf("object not found inside"), "object not found")
 		},
 	}
 
@@ -558,7 +559,7 @@ func TestDataService_GetSafeObjectList_Empty(t *testing.T) {
 func TestDataService_GetSafeObjectList_StorageError(t *testing.T) {
 	mockStorage := &MockDataStorage{
 		GetObjectListDescFunc: func(ctx context.Context, user int32) ([]*model.DBObject, error) {
-			return nil, lerrors.NewLEInternalError("database error")
+			return nil, lerrors.NewLEInternalError(fmt.Errorf("database error inside"), "database error")
 		},
 	}
 

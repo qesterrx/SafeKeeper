@@ -97,7 +97,7 @@ func (j *JWTServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 		}
 
 		// Добавляем claims в контекст
-		ctx = context.WithValue(ctx, "user_id", claims.Userid)
+		ctx = jwta.SetUserID(ctx, claims.Userid)
 
 		// Продолжаем выполнение
 		return handler(ctx, req)
@@ -148,7 +148,7 @@ func (j *JWTServerInterceptor) Stream() grpc.StreamServerInterceptor {
 		}
 
 		// Добавляем claims в контекст
-		ctx = context.WithValue(ctx, "user_id", claims.Userid)
+		ctx = jwta.SetUserID(ctx, claims.Userid)
 
 		// Создаем обернутый стрим с новым контекстом
 		wrappedStream := &wrappedServerStream{

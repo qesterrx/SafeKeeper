@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/qesterrx/SafeKeeper/cmd/client/internal/config"
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/model"
 	"github.com/qesterrx/SafeKeeper/internal/logger"
 )
@@ -33,6 +34,8 @@ type ListRepository struct {
 	fileCfgApp string
 	server     Server
 
+	cfg *config.Configuration
+
 	DirData string                         `json:"directory"`
 	LRIMap  map[string]*ListRepositoryItem `json:"connections"`
 }
@@ -47,7 +50,7 @@ type ListRepository struct {
 // Возвращает:
 //   - *ListRepository: указатель на созданный репозиторий
 //   - error: ошибка при создании директорий, чтении или парсинге конфигурации
-func NewListRepository(ctx context.Context, server Server, defdir string) (*ListRepository, error) {
+func NewListRepository(ctx context.Context, server Server, cfg *config.Configuration) (*ListRepository, error) {
 
 	dirCfg, err := os.UserConfigDir()
 	if err != nil {
@@ -56,14 +59,14 @@ func NewListRepository(ctx context.Context, server Server, defdir string) (*List
 
 	dirCfgApp := filepath.Join(dirCfg, "sk")
 
-	lr := ListRepository{}
+	lr := ListRepository{cfg: cfg}
 
 	lr.fileCfgApp = filepath.Join(dirCfgApp, "config.json")
 
 	//Проверяем на существование
 	if _, err := os.Stat(lr.fileCfgApp); os.IsNotExist(err) {
 
-		if defdir == "" {
+		if cfg.DefDir == "" {
 			return nil, fmt.Errorf("для продолжения необходимо определить папку для размещения данных")
 		}
 
@@ -72,7 +75,7 @@ func NewListRepository(ctx context.Context, server Server, defdir string) (*List
 			return nil, fmt.Errorf("ошибка сохранения конфигурации: %w", err)
 		}
 
-		lr.DirData = defdir
+		lr.DirData = cfg.DefDir
 		lr.LRIMap = map[string]*ListRepositoryItem{}
 
 		err = lr.saveCfg()
@@ -268,6 +271,8 @@ func (lr *ListRepository) BackgroundProcess(ctx context.Context, interval time.D
 				if err != nil {
 					si.Status = err.Error()
 				}
+
+				logger.Log.Debug("ListRepository.BackgroundProcess ping status: %s, err:%v", si.Status, err)
 			}
 
 		}

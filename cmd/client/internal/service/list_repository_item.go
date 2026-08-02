@@ -86,5 +86,6 @@ func (lri *ListRepositoryItem) GetIfaceRepoItem() *model.IfaceRepoItem {
 		Login:    lri.Login,
 		Path:     lri.Path,
 		AESToken: lri.AESToken,
+		Status:   lri.Status,
 	}
 }

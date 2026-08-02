@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"time"
 )
 
 // EncryptGCM шифрует данные с использованием AES-256-GCM (Galois/Counter Mode)
@@ -108,7 +107,6 @@ func EncryptStreamCTR(key []byte, input io.Reader, output io.Writer, len int64, 
 
 			processed = processed + n
 			*status = fmt.Sprintf("Шифрование %.2f%%", float32(processed)/float32(len)*100)
-			time.Sleep(1 * time.Millisecond)
 
 		}
 		if err == io.EOF {
@@ -151,7 +149,6 @@ func DecryptStreamCTR(key []byte, input io.Reader, output io.Writer, len int64, 
 
 			processed = processed + n
 			*status = fmt.Sprintf("Расшифровка %.2f%%", float32(processed)/float32(len)*100)
-			time.Sleep(1 * time.Millisecond)
 		}
 		if err == io.EOF {
 			break

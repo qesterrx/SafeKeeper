@@ -15,7 +15,7 @@ go run ./cmd/server/main.go -d=postgres://safekeeper:safekeeper@localhost:5432/s
 
 Пример запуска клиента
 ```bash
-go run ./cmd/client/main.go -f=client.log -l=DEBUG -d=sk_data
+go run -ldflags "-X 'main.buildClientVersion=1' -X 'main.buildInfo=Тестовая версия'" ./cmd/client/main.go -f=client.log -l=DEBUG
 ```
 
 ------------------------------------------------------------------------------------------

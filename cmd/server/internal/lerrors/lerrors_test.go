@@ -1,6 +1,7 @@
 package lerrors
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -12,28 +13,28 @@ func TestLError_Error(t *testing.T) {
 	}{
 		{
 			name:     "internal error",
-			err:      NewLEInternalError("database connection failed"),
-			expected: "[1] database connection failed",
+			err:      NewLEInternalError(fmt.Errorf("internal error inside"), "internal error"),
+			expected: "[1] internal error",
 		},
 		{
 			name:     "wrong password",
-			err:      NewLEUserWrongPassword("user@example.com"),
-			expected: "[2] user@example.com",
+			err:      NewLEUserWrongPassword(fmt.Errorf("wrong password inside"), "wrong password"),
+			expected: "[2] wrong password",
 		},
 		{
 			name:     "user already exists",
-			err:      NewLEUserAlreadyExists("admin"),
-			expected: "[3] admin",
+			err:      NewLEUserAlreadyExists(fmt.Errorf("user already exists inside"), "user already exists"),
+			expected: "[3] user already exists",
 		},
 		{
 			name:     "object not found",
-			err:      NewLEObjectNotFound("123"),
-			expected: "[4] 123",
+			err:      NewLEObjectNotFound(fmt.Errorf("object not found inside"), "object not found"),
+			expected: "[4] object not found",
 		},
 		{
 			name:     "object too old",
-			err:      NewLEObjectTooOld("version mismatch"),
-			expected: "[5] version mismatch",
+			err:      NewLEObjectTooOld(fmt.Errorf("object too old inside"), "object too old"),
+			expected: "[5] object too old",
 		},
 	}
 
@@ -48,9 +49,9 @@ func TestLError_Error(t *testing.T) {
 
 func TestLError_ImplementsError(t *testing.T) {
 	var _ error = &LError{}
-	var _ error = NewLEInternalError("test")
-	var _ error = NewLEUserWrongPassword("test")
-	var _ error = NewLEUserAlreadyExists("test")
-	var _ error = NewLEObjectNotFound("test")
-	var _ error = NewLEObjectTooOld("test")
+	var _ error = NewLEInternalError(fmt.Errorf("test"), "test")
+	var _ error = NewLEUserWrongPassword(fmt.Errorf("test"), "test")
+	var _ error = NewLEUserAlreadyExists(fmt.Errorf("test"), "test")
+	var _ error = NewLEObjectNotFound(fmt.Errorf("test"), "test")
+	var _ error = NewLEObjectTooOld(fmt.Errorf("test"), "test")
 }

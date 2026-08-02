@@ -50,13 +50,14 @@ func ConstructServerListForm(ta *TUIApp, lr ListRepoService) (*ServerListForm, e
 	// Создание таблицы
 	slf.table = tview.NewTable()
 	slf.table.SetBorders(true)
+	slf.table.SetTitle(fmt.Sprintf("%s. Версия: %d", slf.ta.cnfig.ClientBuildInfo, slf.ta.cnfig.ClientVersion))
 	slf.table.SetSelectable(true, false) // Выбор только строк
 	slf.table.SetFixed(1, 0)             // Фиксируем заголовок
 
 	// Статусная строка с подсказками
 	slf.statusBar = tview.NewTextView().
 		SetTextColor(tcell.ColorYellow).
-		SetText(" [+]Добавить  [-]Удалить  [Enter]Открыть  [Esc]Выход ")
+		SetText(" [+]Добавить  [-]Удалить  [Enter]Открыть  [Esc]Выход")
 
 	// Основной макет
 	slf.flex = tview.NewFlex().
@@ -64,7 +65,9 @@ func ConstructServerListForm(ta *TUIApp, lr ListRepoService) (*ServerListForm, e
 		AddItem(slf.table, 0, 1, true).
 		AddItem(slf.statusBar, 1, 0, false)
 
-		// Обработка клавиш
+	slf.flex.SetBorder(true).SetTitle(fmt.Sprintf("%s :: %d  ", slf.ta.cnfig.ClientBuildInfo, slf.ta.cnfig.ClientVersion)).SetTitleAlign(tview.AlignCenter)
+
+	// Обработка клавиш
 	slf.flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case '+':
@@ -287,7 +290,7 @@ func (slf *ServerListForm) ShowServerListForm() {
 func (slf *ServerListForm) RedrawLoop(ctx context.Context, interval time.Duration) {
 
 	logger.Log.Debug("ServerListForm.RedrawLoop START")
-	logger.Log.Debug("ServerListForm.RedrawLoop STOP")
+	defer logger.Log.Debug("ServerListForm.RedrawLoop STOP")
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

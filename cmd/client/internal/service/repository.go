@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/qesterrx/SafeKeeper/cmd/client/internal/config"
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/model"
 	"github.com/qesterrx/SafeKeeper/internal/logger"
 	"golang.org/x/sync/errgroup"
@@ -41,6 +42,7 @@ type Transport interface {
 
 // Reposityory представляет локальный репозиторий объектов SafeData
 type Reposityory struct {
+	cfg    *config.Configuration
 	repo   *ListRepositoryItem
 	aeskey []byte
 	idx    int32
@@ -58,7 +60,7 @@ type Reposityory struct {
 // Параметры:
 //   - repo: элемент репозитория с настройками подключения
 //   - pswd: пароль пользователя для расшифровки AES-ключа
-func NewLocalReposityory(repo *model.IfaceRepoItem, pswd string) (*Reposityory, error) {
+func NewLocalReposityory(repo *model.IfaceRepoItem, pswd string, cfg *config.Configuration) (*Reposityory, error) {
 
 	repoItem := &ListRepositoryItem{
 		Name:     repo.Name,
@@ -86,6 +88,7 @@ func NewLocalReposityory(repo *model.IfaceRepoItem, pswd string) (*Reposityory, 
 		aeskey: aesKey,
 		items:  map[int32]*repositoryItem{},
 		idx:    0,
+		cfg:    cfg,
 	}
 
 	//Загружаем локальные метаданные
@@ -391,7 +394,7 @@ func (r *Reposityory) BackgroundProcess(ctx context.Context, interval time.Durat
 			return nil
 		case <-ticker.C:
 			if r.client == nil {
-				client, err := NewClient(r.repo.Login, r.pswd, r.repo.GetAdress(), r.repo.AESToken)
+				client, err := NewClient(r.repo.Login, r.pswd, r.repo.GetAdress(), r.repo.AESToken, r.cfg.ClientVersion)
 
 				r.client = client
 
@@ -413,11 +416,11 @@ func (r *Reposityory) BackgroundProcess(ctx context.Context, interval time.Durat
 				})
 
 				g.Wait()
+				close(objsChan)
 
 				for obj := range objsChan {
 					obj.RestorePrevStatus()
 				}
-				close(objsChan)
 
 				r.client.Close()
 				r.client = nil

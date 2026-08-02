@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strconv"
+	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -17,7 +17,6 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/model"
-	"github.com/qesterrx/SafeKeeper/internal/logger"
 )
 
 // PGSQL представляет драйвер для работы с базой данных PostgreSQL
@@ -38,32 +37,27 @@ func NewStoragePGSQL(dbDSN string) (*PGSQL, error) {
 	//Создаем подключение
 	conn, err := sql.Open("pgx", dbDSN)
 	if err != nil {
-		logger.Log.Error("Ошибка подключения к БД %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Ошибка подключения к БД %w", err)
 	}
 
 	//Проверка подключения
 	if err := conn.Ping(); err != nil {
-		logger.Log.Error("Ошибка при проверке соединения с БД %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Ошибка при проверке соединения с БД %w", err)
 	}
 
 	//Миграции
 	driver, err := postgres.WithInstance(conn, &postgres.Config{})
 	if err != nil {
-		logger.Log.Error("Ошибка при создании инстанса БД для миграций %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Ошибка при создании инстанса БД для миграций %w", err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance("file://migrations", "postgres", driver)
 	if err != nil {
-		logger.Log.Error("Ошибка при создании экземпляра миграции %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Ошибка при создании экземпляра миграции %w", err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		logger.Log.Error("Ошибка применения миграций %v", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("Ошибка применения миграций %w", err)
 	}
 
 	pg := PGSQL{db: conn}
@@ -106,13 +100,11 @@ func (pg *PGSQL) NewUser(ctx context.Context, login, password, aestoken string) 
 		if errors.As(err, &pgErr) {
 			switch pgErr.Code {
 			case "23505":
-				logger.Log.Info("NewUser: Пользователь с логином %s уже зарегистрирован", login)
-				return lerrors.NewLEUserAlreadyExists(login)
+				return lerrors.NewLEUserAlreadyExists(err, fmt.Sprintf("NewUser: Пользователь с логином %s уже зарегистрирован", login))
 			}
 		}
 
-		logger.Log.Error("NewUser: %v", err.Error())
-		return lerrors.NewLEInternalError(err.Error())
+		return lerrors.NewLEInternalError(err, "NewUser error")
 	}
 
 	return nil
@@ -142,12 +134,10 @@ func (pg *PGSQL) GetUserByLogin(ctx context.Context, login string) (*model.DBUse
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Log.Info("GetUser: пользователь с логином %s не найден", login)
-			return nil, lerrors.NewLEUserWrongPassword(login)
+			return nil, lerrors.NewLEUserWrongPassword(err, fmt.Sprintf("GetUser: пользователь с логином %s не найден", login))
 		}
 
-		logger.Log.Error("GetUser: %v", err.Error())
-		return nil, lerrors.NewLEInternalError(err.Error())
+		return nil, lerrors.NewLEInternalError(err, "GetUserByLogin error")
 	}
 
 	return &user, nil
@@ -176,12 +166,10 @@ func (pg *PGSQL) GetUserById(ctx context.Context, id int32) (*model.DBUser, erro
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Log.Info("GetUserId: пользователь с ид %d не найден", id)
-			return nil, lerrors.NewLEUserWrongPassword(strconv.Itoa(int(id)))
+			return nil, lerrors.NewLEUserWrongPassword(err, fmt.Sprintf("GetUserId: пользователь с ид %d не найден", id))
 		}
 
-		logger.Log.Error("GetUserId: %v", err.Error())
-		return nil, lerrors.NewLEInternalError(err.Error())
+		return nil, lerrors.NewLEInternalError(err, "GetUserId error")
 	}
 
 	return &user, nil
@@ -211,12 +199,10 @@ func (pg *PGSQL) GetObjectDesc(ctx context.Context, id, user int32) (*model.DBOb
 		Scan(&obj.Name, &obj.Kind, &obj.CheckSum, &obj.Updated, &obj.Version, &obj.Client, &obj.Deleted)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Log.Info("GetObjectDesc: объект с ИД %d пользователя %d не найден", id, user)
-			return nil, lerrors.NewLEObjectNotFound(strconv.Itoa(int(id)))
+			return nil, lerrors.NewLEObjectNotFound(err, fmt.Sprintf("GetObjectDesc: объект с ИД %d пользователя %d не найден", id, user))
 		}
 
-		logger.Log.Error("GetObjectDesc: %v", err.Error())
-		return nil, lerrors.NewLEInternalError(err.Error())
+		return nil, lerrors.NewLEInternalError(err, "GetObjectDesc")
 	}
 	return &obj, nil
 }
@@ -245,12 +231,10 @@ func (pg *PGSQL) GetObjectData(ctx context.Context, id, user int32) ([]byte, err
 		Scan(&res)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			logger.Log.Info("GetObjectData: объект с ИД %d пользователя %d не найден", id, user)
-			return nil, lerrors.NewLEObjectNotFound(strconv.Itoa(int(id)))
+			return nil, lerrors.NewLEObjectNotFound(err, fmt.Sprintf("GetObjectData: объект с ИД %d пользователя %d не найден", id, user))
 		}
 
-		logger.Log.Error("GetObjectData: %v", err.Error())
-		return nil, lerrors.NewLEInternalError(err.Error())
+		return nil, lerrors.NewLEInternalError(err, "")
 	}
 	return res, nil
 }
@@ -273,9 +257,7 @@ func (pg *PGSQL) GetObjectListDesc(ctx context.Context, user int32) ([]*model.DB
 
 	rows, err := pg.db.Query(`SELECT DFOBJECT, DFNAME, DFKIND, DFCHECKSUM, DFUPDATED, DFVERSION, DFCLIENT, DFDELETED FROM TOBJECTS WHERE DFUSER=@USER`, args)
 	if err != nil {
-
-		logger.Log.Error("GetObjectDesc: %v", err.Error())
-		return nil, lerrors.NewLEInternalError(err.Error())
+		return nil, lerrors.NewLEInternalError(err, "GetObjectListDesc error query")
 	}
 	defer rows.Close()
 
@@ -284,16 +266,14 @@ func (pg *PGSQL) GetObjectListDesc(ctx context.Context, user int32) ([]*model.DB
 		obj := model.DBObject{User: user}
 		err := rows.Scan(&obj.Id, &obj.Name, &obj.Kind, &obj.CheckSum, &obj.Updated, &obj.Version, &obj.Client, &obj.Deleted)
 		if err != nil {
-			logger.Log.Info("GetObjectListDesc rows: %v", err)
-			return nil, lerrors.NewLEInternalError(err.Error())
+			return nil, lerrors.NewLEInternalError(err, "GetObjectListDesc error rows")
 		}
 
 		objs = append(objs, &obj)
 	}
 
 	if rows.Err() != nil {
-		logger.Log.Info("GetObjectListDesc after rows: %v", rows.Err())
-		return nil, lerrors.NewLEInternalError(rows.Err().Error())
+		return nil, lerrors.NewLEInternalError(err, "GetObjectListDesc error after rows")
 	}
 
 	return objs, nil
@@ -328,8 +308,7 @@ func (pg *PGSQL) NewObject(ctx context.Context, object *model.DBObject) (int32, 
 		VALUES (@USER, @NAME, @KIND, @DATA, @CHECKSUM, @UPDATED, @VERSION, @CLIENT, @DELETED)
 		RETURNING DFOBJECT`, args).Scan(&id)
 	if err != nil {
-		logger.Log.Error("NewObject: %v", err.Error())
-		return 0, lerrors.NewLEInternalError(err.Error())
+		return 0, lerrors.NewLEInternalError(err, "NewObject error")
 	}
 
 	return id, nil
@@ -369,8 +348,7 @@ func (pg *PGSQL) UpdateObject(ctx context.Context, object *model.DBObject) error
 		   DFDELETED=@DELETED
 		 WHERE DFOBJECT=@OBJECT`, args)
 	if err != nil {
-		logger.Log.Error("UpdateObject: %v", err.Error())
-		return lerrors.NewLEInternalError(err.Error())
+		return lerrors.NewLEInternalError(err, "UpdateObject error")
 	}
 
 	return nil

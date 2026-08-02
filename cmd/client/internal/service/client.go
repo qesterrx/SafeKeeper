@@ -36,7 +36,7 @@ type Client struct {
 }
 
 // NewClient создает новый экземпляр клиента, выполняет аутентификацию на сервере и устанавливает gRPC-соединение
-func NewClient(login, password, adress, aesTokenRepo string) (*Client, error) {
+func NewClient(login, password, adress, aesTokenRepo string, clientVer int32) (*Client, error) {
 	server := transport.GRPCServer{}
 	jwtToken, aesToken, err := server.Login(login, password, adress)
 	if err != nil {
@@ -47,7 +47,7 @@ func NewClient(login, password, adress, aesTokenRepo string) (*Client, error) {
 		return nil, fmt.Errorf("разные токены шифрования на сервере и клиенте, требуется повторная авторизация")
 	}
 
-	conn, err := transport.NewGRPCConnect(adress, jwtToken, "")
+	conn, err := transport.NewGRPCConnect(adress, jwtToken, clientVer)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (c *Client) SendGetObj(ctx context.Context, obj *repositoryItem) error {
 	}
 
 	obj.version = tobj.Version
-	obj.client = tobj.Version
+	obj.client = tobj.Client
 	obj.updated = tobj.Updated
 
 	return nil

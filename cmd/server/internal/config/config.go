@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -48,6 +49,13 @@ func (t *NetAddress) Set(val string) error {
 
 }
 
+// Перечисление имен файлов TLS сертификатов
+const (
+	certCA        = "ca-cert.pem"
+	certServerKEY = "server-key.pem"
+	certServerCSR = "server-cert.pem"
+)
+
 // Configuration содержит все настройки, необходимые для работы приложения
 // Структура заполняется из флагов командной строки и переменных окружения
 type Configuration struct {
@@ -55,6 +63,22 @@ type Configuration struct {
 	DatabaseDSN string     // Строка подключения к базе данных PostgreSQL (DSN)
 	LogLevel    string     // Уровень детализации логирования: DEBUG, INFO или ERROR
 	JWTSecret   string     // Секретный ключ для подписи и верификации JWT-токенов
+	СertPath    string     //Папка с TLS Сертификатами
+}
+
+// GetCertCA возвращает полный путь к файлу сертификата удостоверяющего центра (CA)
+func (cfg *Configuration) GetCertCA() string {
+	return filepath.Join(cfg.СertPath, certCA)
+}
+
+// GetServerKEY возвращает полный путь к файлу приватного ключа сервера
+func (cfg *Configuration) GetServerKEY() string {
+	return filepath.Join(cfg.СertPath, certServerKEY)
+}
+
+// GetServerCSR возвращает полный путь к файлу сертификата сервера
+func (cfg *Configuration) GetServerCSR() string {
+	return filepath.Join(cfg.СertPath, certServerCSR)
 }
 
 // ParseParams загружает конфигурацию приложения из флагов командной строки и переменных окружения
@@ -64,6 +88,7 @@ type Configuration struct {
 //   - -d (SKP_DATABASE_DSN)    - строка подключения к PostgreSQL
 //   - -l (SKP_LOG_LEVEL)       - уровень логирования (по умолчанию INFO)
 //   - -j (SKP_JWT_SECRET)      - секретный ключ для JWT
+//   - -c (SKP_CERT_PATH)       - путь к TLS сертификатам
 //
 // Возвращает:
 //   - *Configuration: указатель на заполненную структуру конфигурации при успешной загрузке
@@ -78,11 +103,15 @@ func ParseParams() (*Configuration, error) {
 	flag.StringVar(&cfg.DatabaseDSN, "d", "", "Строка соединения с postgresql")
 	flag.StringVar(&cfg.LogLevel, "l", "INFO", "Уровень сообщений логирования [DEBUG/INFO/ERROR]")
 	flag.StringVar(&cfg.JWTSecret, "j", "", "Ключ шифрования для JWT")
+	flag.StringVar(&cfg.СertPath, "c", "certs", fmt.Sprintf("Путь к TLS сертификатам (%s, %s, %s, %s, %s)", certCA, certServerKEY, certServerCSR))
 
 	flag.Parse()
 
 	if envServerHost := os.Getenv("SKP_SERVER_ADDRESS"); envServerHost != "" {
-		cfg.ServerHost.Set(envServerHost)
+		err := cfg.ServerHost.Set(envServerHost)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if envDatabaseDSN := os.Getenv("SKP_DATABASE_DSN"); envDatabaseDSN != "" {
@@ -97,6 +126,10 @@ func ParseParams() (*Configuration, error) {
 		cfg.JWTSecret = envJWTSecret
 	}
 
+	if envCertPath := os.Getenv("SKP_CERT_PATH"); envCertPath != "" {
+		cfg.СertPath = envCertPath
+	}
+
 	if cfg.DatabaseDSN == "" {
 		return nil, fmt.Errorf("Необходимо заполнить строку подключения к БД")
 	}
@@ -109,6 +142,16 @@ func ParseParams() (*Configuration, error) {
 	case "DEBUG", "INFO", "ERROR":
 	default:
 		return nil, fmt.Errorf("Некорректное значение уровня сообщений логирования (%s), допустимые [DEBUG/INFO/ERROR]", cfg.LogLevel)
+	}
+
+	//Проверяем наличие всех файлов в папке с сертификатами
+	for _, i := range []string{certCA, certServerKEY, certServerCSR} {
+		filename := filepath.Join(cfg.СertPath, i)
+		info, err := os.Stat(filename)
+		if info.IsDir() || os.IsNotExist(err) {
+			return nil, fmt.Errorf("В директории с сертификатами %s отсуствует файл %s", cfg.СertPath, i)
+		}
+
 	}
 
 	return &cfg, nil

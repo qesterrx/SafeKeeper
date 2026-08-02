@@ -32,4 +32,13 @@ go.work.sum
 # .vscode/
 
 notes.txt
-bash/
+
+# log files
+*.log
+*.logs
+
+
+# certs
+certs/
+*.pem
+*.srl

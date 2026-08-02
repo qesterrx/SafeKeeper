@@ -19,6 +19,8 @@ type TUIApp struct {
 	app   *tview.Application
 	pages *tview.Pages
 
+	cnfig *config.Configuration
+
 	wg        sync.WaitGroup
 	ctx       context.Context
 	ctxCancel context.CancelFunc
@@ -32,10 +34,11 @@ func NewTUIApp(ctx context.Context, cnfig *config.Configuration) (*TUIApp, error
 
 	ta.app = tview.NewApplication()
 	ta.pages = tview.NewPages()
+	ta.cnfig = cnfig
 
 	//Создаем объекты сервисного слоя
 	server := transport.GRPCServer{}
-	lr, err := service.NewListRepository(ta.ctx, &server, cnfig.DefDir)
+	lr, err := service.NewListRepository(ta.ctx, &server, cnfig)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +116,7 @@ func (ta *TUIApp) OpenPasswordModal(lri *model.IfaceRepoItem, receiver func()) {
 	form.AddButton("Открыть", func() {
 		pswd := form.GetFormItem(0).(*tview.InputField).GetText()
 
-		local, err := service.NewLocalReposityory(lri, pswd)
+		local, err := service.NewLocalReposityory(lri, pswd, ta.cnfig)
 
 		if err != nil {
 			ta.OpenErrorModal(err, receiver)

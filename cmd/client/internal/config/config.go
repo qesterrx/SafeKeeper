@@ -16,6 +16,9 @@ type Configuration struct {
 	LogLevel string
 	// DefDir - директория, содержащая рабочие данные приложения
 	DefDir string
+	//ClientVersion - Версия клиента
+	ClientVersion   int32
+	ClientBuildInfo string
 }
 
 // ParseParams анализирует аргументы командной строки и возвращает заполненную структуру Configuration
@@ -32,7 +35,7 @@ type Configuration struct {
 func ParseParams() (*Configuration, error) {
 	var cfg Configuration
 
-	flag.StringVar(&cfg.LogFile, "f", "wtf", "Файл логирования")
+	flag.StringVar(&cfg.LogFile, "f", "", "Файл логирования")
 	flag.StringVar(&cfg.LogLevel, "l", "INFO", "Уровень сообщений логирования [DEBUG/INFO/ERROR]")
 	flag.StringVar(&cfg.DefDir, "d", "", "Директория с данными")
 

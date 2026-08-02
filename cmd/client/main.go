@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/config"
@@ -12,13 +13,33 @@ import (
 	"github.com/qesterrx/SafeKeeper/internal/logger"
 )
 
+var buildClientVersion string
+var buildInfo string
+
 func main() {
+
+	//Доопределяем ldflags
+	if buildClientVersion == "" {
+		buildClientVersion = "1"
+	}
+
+	cv, err := strconv.Atoi(buildClientVersion)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if buildInfo == "" {
+		buildInfo = "Версия для разработки"
+	}
 
 	//Загружаем конфигурацию
 	config, err := config.ParseParams()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	config.ClientVersion = int32(cv)
+	config.ClientBuildInfo = buildInfo
 
 	//Инициализация логгера
 	if config.LogFile != "" {

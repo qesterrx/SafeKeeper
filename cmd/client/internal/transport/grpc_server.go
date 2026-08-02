@@ -9,12 +9,12 @@ import (
 	pb "github.com/qesterrx/SafeKeeper/proto/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
 // GRPCServer представляет клиентскую часть для взаимодействия с сервером аутентификации
-type GRPCServer struct{}
+type GRPCServer struct{
+}
 
 // Register выполняет регистрацию нового пользователя на сервере
 //
@@ -28,7 +28,12 @@ type GRPCServer struct{}
 //   - error: ошибка
 func (srv *GRPCServer) Register(login, pswd, addr string) (string, error) {
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cred, err := getCredentials()
+	if err != nil {
+		return "", fmt.Errorf("ошибка соединения с сервером: %w", err)
+	}
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
 	if err != nil {
 		return "", fmt.Errorf("Ошибка соединения с сервером: %w", err)
 	}
@@ -70,7 +75,13 @@ func (srv *GRPCServer) Register(login, pswd, addr string) (string, error) {
 //   - error: ошибка
 func (srv *GRPCServer) Login(login, pswd, addr string) (string, string, error) {
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	//Подгружаем сертификат
+	cred, err := getCredentials()
+	if err != nil {
+		return "", "", fmt.Errorf("ошибка соединения с сервером: %w", err)
+	}
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
 	if err != nil {
 		return "", "", fmt.Errorf("Ошибка соединения с сервером: %w", err)
 	}
@@ -103,7 +114,13 @@ func (srv *GRPCServer) Login(login, pswd, addr string) (string, string, error) {
 // Проверяет состояние gRPC-соединения
 func (srv *GRPCServer) Ping(addr string) error {
 
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	//Подгружаем сертификат
+	cred, err := getCredentials()
+	if err != nil {
+		return fmt.Errorf("ошибка соединения с сервером: %w", err)
+	}
+
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
 
 	if err != nil {
 		return fmt.Errorf("Недоступен")

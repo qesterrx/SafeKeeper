@@ -5,9 +5,9 @@ package transport
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
+	"github.com/qesterrx/SafeKeeper/internal/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -52,6 +52,9 @@ func ErrObjectTooOld(msg string) error {
 //   - неизвестный код     -> codes.Internal
 func TranslateError(err error) error {
 	var lError *lerrors.LError
+
+	logger.Log.ForwardError(err)
+
 	if errors.As(err, &lError) {
 		switch lError.Code {
 		case lerrors.StInternalError:
@@ -65,9 +68,9 @@ func TranslateError(err error) error {
 		case lerrors.StObjectTooOld:
 			return ErrObjectTooOld(lError.Message)
 		default:
-			return ErrInternal(strconv.Itoa(int(lError.Code)) + ":: " + lError.Message)
+			return ErrInternal(lError.Message)
 		}
 	} else {
-		return ErrInternal(err.Error())
+		return ErrInternal(lError.Message)
 	}
 }

@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
+	"github.com/qesterrx/SafeKeeper/cmd/server/internal/jwta"
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/model"
 	"github.com/qesterrx/SafeKeeper/internal/logger"
 
@@ -77,7 +77,7 @@ func (sds *SafeDataServer) NewSafeData(stream pb.SafeDataService_NewSafeDataServ
 
 	ctx := stream.Context()
 
-	user, ok := ctx.Value("user_id").(int32)
+	user, ok := jwta.GetUserID(ctx)
 	if !ok {
 		return status.Error(codes.Internal, "пользователь не передан в контексте")
 	}
@@ -171,7 +171,7 @@ func (sds *SafeDataServer) EditSafeData(stream pb.SafeDataService_EditSafeDataSe
 
 	ctx := stream.Context()
 
-	user, ok := ctx.Value("user_id").(int32)
+	user, ok := jwta.GetUserID(ctx)
 	if !ok {
 		return status.Error(codes.Internal, "пользователь не передан в контексте")
 	}
@@ -261,7 +261,7 @@ func (sds *SafeDataServer) EditSafeData(stream pb.SafeDataService_EditSafeDataSe
 //   - error: gRPC-статус с кодом ошибки (или nil при успехе)
 func (sds *SafeDataServer) DelSafeData(ctx context.Context, req *pb.DelSafeDataRequest) (*emptypb.Empty, error) {
 
-	user, ok := ctx.Value("user_id").(int32)
+	user, ok := jwta.GetUserID(ctx)
 	if !ok {
 		return nil, status.Error(codes.Internal, "пользователь не передан в контексте")
 	}
@@ -290,7 +290,7 @@ func (sds *SafeDataServer) DelSafeData(ctx context.Context, req *pb.DelSafeDataR
 //   - error: gRPC-статус с кодом ошибки (или nil при успехе)
 func (sds *SafeDataServer) GetSafeDataList(ctx context.Context, req *emptypb.Empty) (*pb.GetSafeDataListResponse, error) {
 
-	user, ok := ctx.Value("user_id").(int32)
+	user, ok := jwta.GetUserID(ctx)
 	if !ok {
 		return nil, status.Error(codes.Internal, "пользователь не передан в контексте")
 	}
@@ -338,7 +338,7 @@ func (sds *SafeDataServer) GetSafeData(req *pb.GetSafeDataRequest, stream pb.Saf
 
 	ctx := stream.Context()
 
-	user, ok := ctx.Value("user_id").(int32)
+	user, ok := jwta.GetUserID(ctx)
 	if !ok {
 		return status.Error(codes.Internal, "пользователь не передан в контексте")
 	}
@@ -364,8 +364,6 @@ func (sds *SafeDataServer) GetSafeData(req *pb.GetSafeDataRequest, stream pb.Saf
 	res.SetMeta(meta.Build())
 
 	if err := stream.Send(res); err != nil {
-
-		logger.Log.ForwardError(err)
 		return fmt.Errorf("ошибка отправки метаданных: %w", err)
 	}
 
@@ -392,7 +390,6 @@ func (sds *SafeDataServer) GetSafeData(req *pb.GetSafeDataRequest, stream pb.Saf
 
 			offset = offset + n
 
-			time.Sleep(10 * time.Millisecond)
 		}
 
 		if err == io.EOF {

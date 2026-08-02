@@ -5,7 +5,7 @@ package service
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"sync"
 	"time"
 
@@ -99,7 +99,7 @@ func (ds *DataService) DelSafeObject(ctx context.Context, user int32, objId int3
 
 	if !exists {
 		objLock = &sync.Mutex{}
-		ds.locks[user] = objLock
+		ds.locks[objId] = objLock
 	}
 
 	ds.mxLocks.Unlock() //освобождаем общий мьютекс
@@ -112,7 +112,7 @@ func (ds *DataService) DelSafeObject(ctx context.Context, user int32, objId int3
 	}
 
 	if dbObj.Version > objVersion {
-		return lerrors.NewLEObjectTooOld("объект на сервере более свежий " + strconv.Itoa(int(dbObj.Version)) + ">" + strconv.Itoa(int(objVersion)))
+		return lerrors.NewLEObjectTooOld(nil, fmt.Sprintf("объект на сервере более свежий %d>%d", dbObj.Version, objVersion))
 	}
 
 	dbObj.Data = nil
@@ -146,7 +146,7 @@ func (ds *DataService) EditSafeObject(ctx context.Context, user int32, obj *mode
 
 	if !exists {
 		objLock = &sync.Mutex{}
-		ds.locks[user] = objLock
+		ds.locks[obj.Id] = objLock
 	}
 
 	ds.mxLocks.Unlock() //освобождаем общий мьютекс
@@ -159,11 +159,11 @@ func (ds *DataService) EditSafeObject(ctx context.Context, user int32, obj *mode
 	}
 
 	if dbObjs.Deleted {
-		return lerrors.NewLEObjectTooOld("объект на сервере удален")
+		return lerrors.NewLEObjectTooOld(nil, "объект на сервере удален")
 	}
 
 	if dbObjs.Version > obj.Version {
-		return lerrors.NewLEObjectTooOld("объект на сервере более свежий " + strconv.Itoa(int(dbObjs.Version)) + ">" + strconv.Itoa(int(obj.Version)))
+		return lerrors.NewLEObjectTooOld(nil, fmt.Sprintf("объект на сервере более свежий %d>%d", dbObjs.Version, obj.Version))
 	}
 
 	dbObjs.Version = dbObjs.Version + 1
@@ -200,7 +200,7 @@ func (ds *DataService) GetSafeObject(ctx context.Context, user int32, objId int3
 	}
 
 	if dbObjs.Deleted {
-		return nil, lerrors.NewLEObjectNotFound(strconv.Itoa(int(objId)))
+		return nil, lerrors.NewLEObjectNotFound(nil, fmt.Sprintf("Объект [%d] на сервере удален", objId))
 	}
 
 	obj := dbObjs.TranslateToSafeObject()

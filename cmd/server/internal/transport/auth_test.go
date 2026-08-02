@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
@@ -35,7 +36,7 @@ func TestAuthServer_Register_Success(t *testing.T) {
 			return "test-aes-token", nil
 		},
 	}
-	server := NewAuthServer(mockService)
+	server := NewAuthServer(mockService, nil)
 
 	req := &pb.RegisterRequest{}
 	req.SetUsername("testuser")
@@ -54,10 +55,10 @@ func TestAuthServer_Register_Success(t *testing.T) {
 func TestAuthServer_Register_Error(t *testing.T) {
 	mockService := &MockAuthService{
 		RegisterFunc: func(ctx context.Context, username, password string) (string, error) {
-			return "", lerrors.NewLEUserAlreadyExists("user exists")
+			return "", lerrors.NewLEUserAlreadyExists(fmt.Errorf("user exists"), "")
 		},
 	}
-	server := NewAuthServer(mockService)
+	server := NewAuthServer(mockService, nil)
 
 	req := &pb.RegisterRequest{}
 	req.SetUsername("testuser")
@@ -80,7 +81,7 @@ func TestAuthServer_Login_Success(t *testing.T) {
 			return "jwt-token", "aes-token", nil
 		},
 	}
-	server := NewAuthServer(mockService)
+	server := NewAuthServer(mockService, nil)
 
 	req := &pb.LoginRequest{}
 	req.SetUsername("testuser")
@@ -102,10 +103,10 @@ func TestAuthServer_Login_Success(t *testing.T) {
 func TestAuthServer_Login_InvalidCredentials(t *testing.T) {
 	mockService := &MockAuthService{
 		LoginFunc: func(ctx context.Context, username, password string) (string, string, error) {
-			return "", "", lerrors.NewLEUserWrongPassword("invalid credentials")
+			return "", "", lerrors.NewLEUserWrongPassword(fmt.Errorf("invalid credentials"), "invalid credentials")
 		},
 	}
-	server := NewAuthServer(mockService)
+	server := NewAuthServer(mockService, nil)
 
 	req := &pb.LoginRequest{}
 	req.SetUsername("testuser")
@@ -123,7 +124,7 @@ func TestAuthServer_Login_InternalError(t *testing.T) {
 			return "", "", errors.New("database connection failed")
 		},
 	}
-	server := NewAuthServer(mockService)
+	server := NewAuthServer(mockService, nil)
 
 	req := &pb.LoginRequest{}
 	req.SetUsername("testuser")

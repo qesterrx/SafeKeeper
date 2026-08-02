@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/jwta"
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
@@ -48,21 +49,21 @@ func (auths *AuthService) Register(ctx context.Context, username string, passwor
 	// Хэшируем пароль
 	hashedPswd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", lerrors.NewLEInternalError("ошибка при шифровании пароля")
+		return "", lerrors.NewLEInternalError(err, "ошибка при шифровании пароля")
 	}
 
 	//Получаем токен для шифрования 32 байта
 	aeskey := make([]byte, 1024)
 	_, err = rand.Read(aeskey)
 	if err != nil {
-		return "", lerrors.NewLEInternalError("ошибка получения токена шифрования")
+		return "", lerrors.NewLEInternalError(err, "ошибка получения токена шифрования")
 	}
 
 	//Шифруем его паролем
 	sha := sha256.Sum256([]byte(password))
 	AESToken, err := aes.EncryptGCM(aeskey, sha[:])
 	if err != nil {
-		return "", lerrors.NewLEInternalError("ошибка шифрования токена шифрования")
+		return "", lerrors.NewLEInternalError(err, "ошибка шифрования токена шифрования")
 	}
 
 	AESTokenStr := base64.StdEncoding.EncodeToString(AESToken)
@@ -85,13 +86,13 @@ func (auths *AuthService) Login(ctx context.Context, username string, password s
 
 	// Проверяем пароль
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return "", "", lerrors.NewLEUserWrongPassword(username)
+		return "", "", lerrors.NewLEUserWrongPassword(err, fmt.Sprintf("Логин/пароль некорректны [%s]", username))
 	}
 
 	// Генерируем JWT токен
 	JWTToken, err := jwta.GenerateToken(int32(user.ID), user.AESToken)
 	if err != nil {
-		return "", "", lerrors.NewLEInternalError("ошибка генерации JWT токена " + err.Error())
+		return "", "", lerrors.NewLEInternalError(err, "ошибка генерации JWT токена "+err.Error())
 	}
 
 	return JWTToken, user.AESToken, nil
