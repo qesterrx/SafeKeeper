@@ -15,6 +15,8 @@ import (
 
 // DataStorage определяет интерфейс для работы с хранилищем защищённых объектов
 // Реализует все необходимые операции для управления данными пользователей
+//
+//go:generate mockery --name=DataStorage --output=mocks --outpkg=mocks --filename=data_mock.go
 type DataStorage interface {
 	// GetObjectDesc возвращает описание объекта без данных (только метаданные)
 	GetObjectDesc(ctx context.Context, id, user int32) (*model.DBObject, error)

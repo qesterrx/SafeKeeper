@@ -39,6 +39,5 @@ notes.txt
 
 
 # certs
-certs/
 *.pem
 *.srl

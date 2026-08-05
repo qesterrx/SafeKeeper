@@ -71,6 +71,6 @@ func TranslateError(err error) error {
 			return ErrInternal(lError.Message)
 		}
 	} else {
-		return ErrInternal(lError.Message)
+		return ErrInternal(err.Error())
 	}
 }

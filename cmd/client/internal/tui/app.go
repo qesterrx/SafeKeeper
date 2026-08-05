@@ -37,8 +37,12 @@ func NewTUIApp(ctx context.Context, cnfig *config.Configuration) (*TUIApp, error
 	ta.cnfig = cnfig
 
 	//Создаем объекты сервисного слоя
-	server := transport.GRPCServer{}
-	lr, err := service.NewListRepository(ta.ctx, &server, cnfig)
+	server, err := transport.NewGRPCServer(cnfig.CertCA)
+	if err != nil {
+		return nil, err
+	}
+
+	lr, err := service.NewListRepository(ta.ctx, server, cnfig)
 	if err != nil {
 		return nil, err
 	}

@@ -219,7 +219,7 @@ func (lr *ListRepository) DelItem(name string) error {
 		return fmt.Errorf("ошибка при удалении каталога с данными: %w\n", err)
 	}
 
-	delete(lr.LRIMap, name)
+	delete(lr.LRIMap, tmpName)
 
 	err = lr.saveCfg()
 	if err != nil {
@@ -266,13 +266,16 @@ func (lr *ListRepository) BackgroundProcess(ctx context.Context, interval time.D
 		case <-ticker.C:
 
 			for _, si := range lr.LRIMap {
+				prevStatus := si.Status
 				si.Status = "Доступен"
 				err := lr.server.Ping(si.GetAdress())
 				if err != nil {
 					si.Status = err.Error()
 				}
 
-				logger.Log.Debug("ListRepository.BackgroundProcess ping status: %s, err:%v", si.Status, err)
+				if prevStatus != si.Status {
+					logger.Log.Debug("ListRepository.BackgroundProcess ping status: %s, err:%v", si.Status, err)
+				}
 			}
 
 		}

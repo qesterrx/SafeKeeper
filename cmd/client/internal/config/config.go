@@ -6,6 +6,7 @@ package config
 import (
 	"flag"
 	"fmt"
+	"os"
 )
 
 // Configuration представляет структуру параметров конфигурации приложения, загружаемых из аргументов командной строки
@@ -16,6 +17,8 @@ type Configuration struct {
 	LogLevel string
 	// DefDir - директория, содержащая рабочие данные приложения
 	DefDir string
+	// CertCA - путь к корневму сертификату сервера для TLS
+	CertCA string
 	//ClientVersion - Версия клиента
 	ClientVersion   int32
 	ClientBuildInfo string
@@ -27,6 +30,7 @@ type Configuration struct {
 //	-f - путь к файлу логирования (по умолчанию пустая строка)
 //	-l - уровень логирования: DEBUG, INFO или ERROR (по умолчанию "INFO")
 //	-d - директория с данными (по умолчанию пустая строка)
+//	-c - путь к корневму сертификату сервера для TLS (по умолчанию пустая строка)
 //
 // Возвращает:
 //   - *Configuration - указатель на структуру с заполненными параметрами
@@ -38,6 +42,7 @@ func ParseParams() (*Configuration, error) {
 	flag.StringVar(&cfg.LogFile, "f", "", "Файл логирования")
 	flag.StringVar(&cfg.LogLevel, "l", "INFO", "Уровень сообщений логирования [DEBUG/INFO/ERROR]")
 	flag.StringVar(&cfg.DefDir, "d", "", "Директория с данными")
+	flag.StringVar(&cfg.CertCA, "c", "certs/ca-cert.pem", "Путь к корневму сертификату сервера для TLS")
 
 	flag.Parse()
 
@@ -45,6 +50,11 @@ func ParseParams() (*Configuration, error) {
 	case "DEBUG", "INFO", "ERROR":
 	default:
 		return nil, fmt.Errorf("Некорректное значение уровня сообщений логирования (%s), допустимые [DEBUG/INFO/ERROR]", cfg.LogLevel)
+	}
+
+	info, err := os.Stat(cfg.CertCA)
+	if info.IsDir() || os.IsNotExist(err) {
+		return nil, fmt.Errorf("Файл серификата отсутсвтует %s", cfg.CertCA)
 	}
 
 	return &cfg, nil

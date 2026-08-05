@@ -12,7 +12,8 @@ import (
 
 // AuthService определяет интерфейс сервиса аутентификации, используемый транспортным слоем
 // Содержит бизнес-логику регистрации и входа пользователей
-
+//
+//go:generate mockery --name=AuthService --output=mocks --outpkg=mocks --filename=auth_mock.go
 type AuthService interface {
 	// Register регистрирует нового пользователя
 	Register(ctx context.Context, username string, password string) (string, error)

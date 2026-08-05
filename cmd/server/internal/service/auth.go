@@ -19,6 +19,8 @@ import (
 )
 
 // AuthStorage определяет интерфейс для работы с хранилищем пользователей
+//
+//go:generate mockery --name=AuthStorage --output=mocks --outpkg=mocks --filename=auth_mock.go
 type AuthStorage interface {
 	// NewUser создаёт нового пользователя в системе
 	NewUser(ctx context.Context, login string, password string, aestoken string) error
@@ -45,6 +47,10 @@ func NewAuthService(storage AuthStorage) (*AuthService, error) {
 // Важно: AES-токен генерируется на стороне сервера и не передаётся клиенту в открытом виде
 // Клиент получает только зашифрованную версию, которую должен расшифровать своим паролем
 func (auths *AuthService) Register(ctx context.Context, username string, password string) (string, error) {
+
+	if password == "" || username == "" {
+		return "", lerrors.NewLEUserWrongPassword(fmt.Errorf("необходимо передать логин/пароль"), "необходимо передать логин/пароль")
+	}
 
 	// Хэшируем пароль
 	hashedPswd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

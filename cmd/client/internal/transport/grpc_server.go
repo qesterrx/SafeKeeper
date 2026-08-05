@@ -3,17 +3,47 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 	"time"
 
 	pb "github.com/qesterrx/SafeKeeper/proto/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/protobuf/proto"
 )
 
 // GRPCServer представляет клиентскую часть для взаимодействия с сервером аутентификации
-type GRPCServer struct{
+type GRPCServer struct {
+	cred *credentials.TransportCredentials
+}
+
+// NewGRPCServer создает объект для возможности авторизации/регистрации на удаленном сервере
+func NewGRPCServer(certCAFile string) (*GRPCServer, error) {
+
+	caCert, err := os.ReadFile(certCAFile)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("Не удалось добавить CA в пул")
+	}
+
+	tlsConfig := &tls.Config{
+		RootCAs:            certPool,
+		ServerName:         "localhost",
+		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS13,
+	}
+
+	cred := credentials.NewTLS(tlsConfig)
+
+	return &GRPCServer{cred: &cred}, nil
 }
 
 // Register выполняет регистрацию нового пользователя на сервере
@@ -28,12 +58,7 @@ type GRPCServer struct{
 //   - error: ошибка
 func (srv *GRPCServer) Register(login, pswd, addr string) (string, error) {
 
-	cred, err := getCredentials()
-	if err != nil {
-		return "", fmt.Errorf("ошибка соединения с сервером: %w", err)
-	}
-
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*srv.cred))
 	if err != nil {
 		return "", fmt.Errorf("Ошибка соединения с сервером: %w", err)
 	}
@@ -75,13 +100,7 @@ func (srv *GRPCServer) Register(login, pswd, addr string) (string, error) {
 //   - error: ошибка
 func (srv *GRPCServer) Login(login, pswd, addr string) (string, string, error) {
 
-	//Подгружаем сертификат
-	cred, err := getCredentials()
-	if err != nil {
-		return "", "", fmt.Errorf("ошибка соединения с сервером: %w", err)
-	}
-
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*srv.cred))
 	if err != nil {
 		return "", "", fmt.Errorf("Ошибка соединения с сервером: %w", err)
 	}
@@ -114,13 +133,7 @@ func (srv *GRPCServer) Login(login, pswd, addr string) (string, string, error) {
 // Проверяет состояние gRPC-соединения
 func (srv *GRPCServer) Ping(addr string) error {
 
-	//Подгружаем сертификат
-	cred, err := getCredentials()
-	if err != nil {
-		return fmt.Errorf("ошибка соединения с сервером: %w", err)
-	}
-
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*cred))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(*srv.cred))
 
 	if err != nil {
 		return fmt.Errorf("Недоступен")

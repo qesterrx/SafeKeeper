@@ -62,7 +62,8 @@ func main() {
 	//Основное приложение
 	app, err := tui.NewTUIApp(ctx, config)
 	if err != nil {
-		log.Fatal(err.Error())
+		logger.Log.Error("Ошибка создания основной TUI формы %v", err)
+		os.Exit(1)
 	}
 
 	//Запуск

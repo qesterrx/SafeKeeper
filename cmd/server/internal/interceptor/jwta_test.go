@@ -9,11 +9,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type MockAESChecker struct {
+type TestAESChecker struct {
 	CheckFunc func(ctx context.Context, userId int32, aesToken string) bool
 }
 
-func (m *MockAESChecker) CheckAESToken(ctx context.Context, userId int32, aesToken string) bool {
+func (m *TestAESChecker) CheckAESToken(ctx context.Context, userId int32, aesToken string) bool {
 	if m.CheckFunc != nil {
 		return m.CheckFunc(ctx, userId, aesToken)
 	}
@@ -21,7 +21,7 @@ func (m *MockAESChecker) CheckAESToken(ctx context.Context, userId int32, aesTok
 }
 
 func TestJWTServerInterceptor_Unary_PublicMethod(t *testing.T) {
-	checker := &MockAESChecker{}
+	checker := &TestAESChecker{}
 	interceptor := NewJWTServerInterceptor(checker)
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -38,9 +38,8 @@ func TestJWTServerInterceptor_Unary_PublicMethod(t *testing.T) {
 	}
 }
 
-
 func TestJWTServerInterceptor_Unary_NoToken(t *testing.T) {
-	checker := &MockAESChecker{}
+	checker := &TestAESChecker{}
 	interceptor := NewJWTServerInterceptor(checker)
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -59,7 +58,7 @@ func TestJWTServerInterceptor_Unary_NoToken(t *testing.T) {
 }
 
 func TestJWTServerInterceptor_Unary_InvalidToken(t *testing.T) {
-	checker := &MockAESChecker{}
+	checker := &TestAESChecker{}
 	interceptor := NewJWTServerInterceptor(checker)
 
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -83,7 +82,7 @@ func TestJWTServerInterceptor_Unary_InvalidAESToken(t *testing.T) {
 	jwta.InitJWTConfig("test-secret-key-32-bytes-long!!!", 24*60*60, "test-issuer")
 	token, _ := jwta.GenerateToken(123, "aes-token")
 
-	checker := &MockAESChecker{
+	checker := &TestAESChecker{
 		CheckFunc: func(ctx context.Context, userId int32, aesToken string) bool {
 			return false // Always fail
 		},

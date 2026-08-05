@@ -3,8 +3,11 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/interceptor"
 	"github.com/qesterrx/SafeKeeper/cmd/client/internal/model"
@@ -13,6 +16,7 @@ import (
 	pb "github.com/qesterrx/SafeKeeper/proto/data"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -29,15 +33,28 @@ type GRPCConnect struct {
 
 // NewGRPCConnect создает новое gRPC-соединение с сервером.
 // Настраивает JWT-интерцепторы для аутентификации всех запросов
-func NewGRPCConnect(addr, jwt string, clientVer int32) (*GRPCConnect, error) {
+func NewGRPCConnect(addr, jwt string, clientVer int32, certCAFile string) (*GRPCConnect, error) {
+
+	caCert, err := os.ReadFile(certCAFile)
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("Не удалось добавить CA в пул")
+	}
+
+	tlsConfig := &tls.Config{
+		RootCAs:            certPool,
+		ServerName:         "localhost",
+		InsecureSkipVerify: false,
+		MinVersion:         tls.VersionTLS13,
+	}
+
+	cred := credentials.NewTLS(tlsConfig)
 
 	grpcc := GRPCConnect{}
-
-	//Сертификат
-	cred, err := getCredentials()
-	if err != nil {
-		return nil, fmt.Errorf("ошибка соединения с сервером: %w", err)
-	}
 
 	//JWTA
 	jwtInterceptor := interceptor.NewJWTClientInterceptor(jwt)
@@ -45,7 +62,7 @@ func NewGRPCConnect(addr, jwt string, clientVer int32) (*GRPCConnect, error) {
 	//Клиент
 	conn, err := grpc.NewClient(
 		addr,
-		grpc.WithTransportCredentials(*cred),
+		grpc.WithTransportCredentials(cred),
 		grpc.WithUnaryInterceptor(jwtInterceptor.Unary()),
 		grpc.WithStreamInterceptor(jwtInterceptor.Stream()),
 	)

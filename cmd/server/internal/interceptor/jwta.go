@@ -89,8 +89,6 @@ func (j *JWTServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 			return nil, status.Errorf(codes.Unauthenticated, "недействительный JWT токен: %v", err)
 		}
 
-		//logger.Log.Debug("Unary JWT ID=%d AES=%s", claims.Userid, claims.AESToken)
-
 		//Проверяем ключ шифрования
 		if ok := j.aesChecker.CheckAESToken(ctx, claims.Userid, claims.AESToken); !ok {
 			return nil, status.Errorf(codes.Unauthenticated, "недействительный AES токен: %v", err)
@@ -139,8 +137,6 @@ func (j *JWTServerInterceptor) Stream() grpc.StreamServerInterceptor {
 		if err != nil {
 			return status.Errorf(codes.Unauthenticated, "недействительный токен: %v", err)
 		}
-
-		//logger.Log.Debug("Stream JWT ID=%d AES=%s", claims.Userid, claims.AESToken)
 
 		// Добавляем claims в контекст
 		if ok := j.aesChecker.CheckAESToken(ctx, claims.Userid, claims.AESToken); !ok {

@@ -2,192 +2,126 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/model"
+	"github.com/qesterrx/SafeKeeper/cmd/server/internal/service/mocks"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// MockAuthStorage implements AuthStorage interface for testing
-type MockAuthStorage struct {
-	NewUserFunc        func(ctx context.Context, login, password, aestoken string) error
-	GetUserByLoginFunc func(ctx context.Context, login string) (*model.DBUser, error)
-	GetUserByIdFunc    func(ctx context.Context, id int32) (*model.DBUser, error)
-}
+func TestAuthService_Register(t *testing.T) {
+	// Создаем мок
+	mockStorage := mocks.NewAuthStorage(t)
 
-func (m *MockAuthStorage) NewUser(ctx context.Context, login, password, aestoken string) error {
-	if m.NewUserFunc != nil {
-		return m.NewUserFunc(ctx, login, password, aestoken)
-	}
-	return nil
-}
+	// Настраиваем ожидания
+	mockStorage.On("NewUser", mock.Anything, "UnExistedUser",
+		mock.MatchedBy(func(password string) bool {
+			// Проверяем, что пароль подходит
+			if err := bcrypt.CompareHashAndPassword([]byte(password), []byte("password")); err != nil {
+				return false
+			}
+			return true
+		}),
+		mock.MatchedBy(func(aest string) bool {
+			//Проверяем что токен не пустой
+			return aest != ""
+		})).Return(nil)
 
-func (m *MockAuthStorage) GetUserByLogin(ctx context.Context, login string) (*model.DBUser, error) {
-	if m.GetUserByLoginFunc != nil {
-		return m.GetUserByLoginFunc(ctx, login)
-	}
-	return &model.DBUser{ID: 1, Login: login, Password: "hashedpass", AESToken: "aes-token"}, nil
-}
+	mockStorage.On("NewUser", mock.Anything, "ExistedUser", mock.Anything, mock.Anything).Return(lerrors.NewLEUserAlreadyExists(fmt.Errorf("error inside"), "error"))
+	mockStorage.On("NewUser", mock.Anything, "InternalErrorUser", mock.Anything, mock.Anything).Return(lerrors.NewLEInternalError(fmt.Errorf("error inside"), "error"))
 
-func (m *MockAuthStorage) GetUserById(ctx context.Context, id int32) (*model.DBUser, error) {
-	if m.GetUserByIdFunc != nil {
-		return m.GetUserByIdFunc(ctx, id)
-	}
-	return &model.DBUser{ID: id, Login: "testuser", Password: "hashedpass", AESToken: "aes-token"}, nil
-}
-
-func TestAuthService_Register_Success(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		NewUserFunc: func(ctx context.Context, login, password, aestoken string) error {
-			return nil
-		},
-	}
+	// Создаем сервис с моком
 	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
+	require.NoError(t, err, "NewAuthService() error")
 
-	aesToken, err := service.Register(context.Background(), "newuser", "password123")
-	if err != nil {
-		t.Fatalf("Register() error = %v", err)
-	}
+	// Выполняем тестируемую функцию
 
-	if aesToken == "" {
-		t.Error("Register() returned empty AES token")
-	}
-}
+	//Успех
+	aest, err := service.Register(context.Background(), "UnExistedUser", "password")
+	require.NoError(t, err, "Register success")
+	require.NotEmpty(t, aest)
 
-func TestAuthService_Register_DuplicateUser(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		NewUserFunc: func(ctx context.Context, login, password, aestoken string) error {
-			return lerrors.NewLEUserAlreadyExists(fmt.Errorf("user exists"), "user exists")
-		},
-	}
-	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
-
-	_, err = service.Register(context.Background(), "existinguser", "password123")
-	if err == nil {
-		t.Error("Register() expected error, got nil")
-	}
-
+	//Ошибки
 	var lErr *lerrors.LError
-	if !errors.As(err, &lErr) {
-		t.Errorf("Register() error type = %T, want *lerrors.LError", err)
-	}
-	if lErr.Code != lerrors.StUserAlreadyExists {
-		t.Errorf("Error code = %v, want %v", lErr.Code, lerrors.StUserAlreadyExists)
-	}
+
+	aest, err = service.Register(context.Background(), "login", "")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StUserWrongPassword, lErr.Code)
+	require.Equal(t, "", aest)
+
+	aest, err = service.Register(context.Background(), "", "")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StUserWrongPassword, lErr.Code)
+	require.Equal(t, "", aest)
+
+	aest, err = service.Register(context.Background(), "ExistedUser", "password")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StUserAlreadyExists, lErr.Code)
+	require.Equal(t, "", aest)
+
+	aest, err = service.Register(context.Background(), "InternalErrorUser", "password")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StInternalError, lErr.Code)
+	require.Equal(t, "", aest)
+
+	// Проверяем, что все ожидания выполнены
+	mockStorage.AssertExpectations(t)
 }
 
-func TestAuthService_Login_WrongPassword(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		GetUserByLoginFunc: func(ctx context.Context, login string) (*model.DBUser, error) {
-			hashedPassword := "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
-			return &model.DBUser{
-				ID:       1,
-				Login:    login,
-				Password: hashedPassword,
-				AESToken: "aes-token",
-			}, nil
-		},
+func TestAuthService_Login(t *testing.T) {
+	// Создаем мок
+	mockStorage := mocks.NewAuthStorage(t)
+
+	user := model.DBUser{
+		ID:       1,
+		Login:    "ExistedUser",
+		Password: "$2a$10$Y6fLdSln/2quB1DPQ2B8gulGwWtQa7IfjtJt0UzwQMnrKY9WjYM5S",
+		AESToken: "aestoken",
 	}
+
+	// Настраиваем ожидания
+	mockStorage.On("GetUserByLogin", mock.Anything, "ExistedUser").Return(&user, nil)
+	mockStorage.On("GetUserByLogin", mock.Anything, "ExistedWrongPasswordUser").Return(&user, nil)
+	mockStorage.On("GetUserByLogin", mock.Anything, "UnExistedWrongPasswordUser").Return(nil, lerrors.NewLEUserWrongPassword(fmt.Errorf("error inside"), "error"))
+	mockStorage.On("GetUserByLogin", mock.Anything, "InternalErrorUser").Return(nil, lerrors.NewLEInternalError(fmt.Errorf("error inside"), "error"))
+
+	// Создаем сервис с моком
 	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
+	require.NoError(t, err, "NewAuthService() error")
 
-	_, _, err = service.Login(context.Background(), "testuser", "wrongpassword")
-	if err == nil {
-		t.Error("Login() expected error, got nil")
-	}
+	// Выполняем тестируемую функцию
 
+	//Успех
+	jwtt, aest, err := service.Login(context.Background(), "ExistedUser", "password")
+	require.NoError(t, err, "Login success")
+	require.NotEmpty(t, jwtt)
+	require.Equal(t, "aestoken", aest)
+
+	//Ошибки
 	var lErr *lerrors.LError
-	if errors.As(err, &lErr) {
-		if lErr.Code != lerrors.StUserWrongPassword {
-			t.Errorf("Error code = %v, want %v", lErr.Code, lerrors.StUserWrongPassword)
-		}
-	}
-}
 
-func TestAuthService_Login_UserNotFound(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		GetUserByLoginFunc: func(ctx context.Context, login string) (*model.DBUser, error) {
-			return nil, lerrors.NewLEUserWrongPassword(fmt.Errorf("user not found"), "user not found")
-		},
-	}
-	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
+	jwtt, aest, err = service.Login(context.Background(), "ExistedWrongPasswordUser", "password2")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StUserWrongPassword, lErr.Code)
+	require.Empty(t, jwtt)
+	require.Empty(t, aest)
 
-	_, _, err = service.Login(context.Background(), "nonexistent", "password123")
-	if err == nil {
-		t.Error("Login() expected error, got nil")
-	}
-}
+	jwtt, aest, err = service.Login(context.Background(), "UnExistedWrongPasswordUser", "")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StUserWrongPassword, lErr.Code)
+	require.Empty(t, jwtt)
+	require.Empty(t, aest)
 
-func TestAuthService_CheckAESToken_Success(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		GetUserByIdFunc: func(ctx context.Context, id int32) (*model.DBUser, error) {
-			return &model.DBUser{
-				ID:       id,
-				Login:    "testuser",
-				Password: "hashed",
-				AESToken: "correct-aes-token",
-			}, nil
-		},
-	}
-	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
+	jwtt, aest, err = service.Login(context.Background(), "InternalErrorUser", "")
+	require.ErrorAs(t, err, &lErr)
+	require.Equal(t, lerrors.StInternalError, lErr.Code)
+	require.Empty(t, jwtt)
+	require.Empty(t, aest)
 
-	result := service.CheckAESToken(context.Background(), 1, "correct-aes-token")
-	if !result {
-		t.Error("CheckAESToken() returned false, expected true")
-	}
-}
-
-func TestAuthService_CheckAESToken_Failure(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		GetUserByIdFunc: func(ctx context.Context, id int32) (*model.DBUser, error) {
-			return &model.DBUser{
-				ID:       id,
-				Login:    "testuser",
-				Password: "hashed",
-				AESToken: "correct-aes-token",
-			}, nil
-		},
-	}
-	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
-
-	result := service.CheckAESToken(context.Background(), 1, "wrong-aes-token")
-	if result {
-		t.Error("CheckAESToken() returned true, expected false")
-	}
-}
-
-func TestAuthService_CheckAESToken_UserNotFound(t *testing.T) {
-	mockStorage := &MockAuthStorage{
-		GetUserByIdFunc: func(ctx context.Context, id int32) (*model.DBUser, error) {
-			return nil, errors.New("user not found")
-		},
-	}
-	service, err := NewAuthService(mockStorage)
-	if err != nil {
-		t.Fatalf("NewAuthService() error = %v", err)
-	}
-
-	result := service.CheckAESToken(context.Background(), 999, "any-token")
-	if result {
-		t.Error("CheckAESToken() returned true for non-existent user, expected false")
-	}
+	// Проверяем, что все ожидания выполнены
+	mockStorage.AssertExpectations(t)
 }

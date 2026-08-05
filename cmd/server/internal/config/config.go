@@ -103,7 +103,7 @@ func ParseParams() (*Configuration, error) {
 	flag.StringVar(&cfg.DatabaseDSN, "d", "", "Строка соединения с postgresql")
 	flag.StringVar(&cfg.LogLevel, "l", "INFO", "Уровень сообщений логирования [DEBUG/INFO/ERROR]")
 	flag.StringVar(&cfg.JWTSecret, "j", "", "Ключ шифрования для JWT")
-	flag.StringVar(&cfg.СertPath, "c", "certs", fmt.Sprintf("Путь к TLS сертификатам (%s, %s, %s, %s, %s)", certCA, certServerKEY, certServerCSR))
+	flag.StringVar(&cfg.СertPath, "c", "certs", fmt.Sprintf("Путь к TLS сертификатам (%s, %s, %s)", certCA, certServerKEY, certServerCSR))
 
 	flag.Parse()
 

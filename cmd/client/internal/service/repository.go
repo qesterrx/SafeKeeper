@@ -394,14 +394,15 @@ func (r *Reposityory) BackgroundProcess(ctx context.Context, interval time.Durat
 			return nil
 		case <-ticker.C:
 			if r.client == nil {
-				client, err := NewClient(r.repo.Login, r.pswd, r.repo.GetAdress(), r.repo.AESToken, r.cfg.ClientVersion)
-
-				r.client = client
+				client, err := NewClient(r.repo.Login, r.pswd, r.repo.GetAdress(), r.repo.AESToken, r.cfg.CertCA, r.cfg.ClientVersion)
 
 				if err != nil {
 					logger.Log.Info("Can't connect to server %s: %v", r.repo.GetAdress(), err)
+					r.client = nil
 					continue
 				}
+
+				r.client = client
 
 				objsChan := make(chan *repositoryItem, 50)
 
@@ -533,7 +534,6 @@ func (r *Reposityory) backgroundWriter(ctx context.Context, objs chan *repositor
 								i.SetMessage(err.Error())
 							} else {
 								delete(r.items, i.id)
-								//i = nil
 							}
 						} else {
 							if ri.Version > i.version && i.status == itemStatusSynced {
@@ -698,7 +698,6 @@ func (r *Reposityory) backgroundReader(ctx context.Context, objs chan *repositor
 					}
 
 					delete(r.items, id)
-					//i = nil
 
 					return nil
 				}

@@ -7,131 +7,226 @@ import (
 	"testing"
 
 	"github.com/qesterrx/SafeKeeper/cmd/server/internal/lerrors"
+	"github.com/qesterrx/SafeKeeper/cmd/server/internal/transport/mocks"
 	pb "github.com/qesterrx/SafeKeeper/proto/auth"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-// MockAuthService implements AuthService interface for testing
-type MockAuthService struct {
-	RegisterFunc func(ctx context.Context, username, password string) (string, error)
-	LoginFunc    func(ctx context.Context, username, password string) (string, string, error)
-}
-
-func (m *MockAuthService) Register(ctx context.Context, username, password string) (string, error) {
-	if m.RegisterFunc != nil {
-		return m.RegisterFunc(ctx, username, password)
-	}
-	return "mock-aes-token", nil
-}
-
-func (m *MockAuthService) Login(ctx context.Context, username, password string) (string, string, error) {
-	if m.LoginFunc != nil {
-		return m.LoginFunc(ctx, username, password)
-	}
-	return "mock-jwt-token", "mock-aes-token", nil
-}
-
-func TestAuthServer_Register_Success(t *testing.T) {
-	mockService := &MockAuthService{
-		RegisterFunc: func(ctx context.Context, username, password string) (string, error) {
-			return "test-aes-token", nil
+func TestAuthServer_Register(t *testing.T) {
+	tests := []struct {
+		name        string
+		username    string
+		password    string
+		setupMock   func(*mocks.AuthService)
+		expectError bool
+		errCode     lerrors.Status
+		expectedAES string
+	}{
+		{
+			name:     "Success",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				m.On("Register", mock.Anything, "testuser", "testpass123").
+					Return("test-aes-token", nil)
+			},
+			expectError: false,
+			expectedAES: "test-aes-token",
+		},
+		{
+			name:     "UserAlreadyExists",
+			username: "existinguser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEUserAlreadyExists(fmt.Errorf("user exists"), "user already exists")
+				m.On("Register", mock.Anything, "existinguser", "testpass123").
+					Return("", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StUserAlreadyExists,
+		},
+		{
+			name:     "InternalError",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEInternalError(fmt.Errorf("db error"), "database error")
+				m.On("Register", mock.Anything, "testuser", "testpass123").
+					Return("", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StInternalError,
+		},
+		{
+			name:     "GenericError",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				m.On("Register", mock.Anything, "testuser", "testpass123").
+					Return("", errors.New("some generic error"))
+			},
+			expectError: true,
 		},
 	}
-	server := NewAuthServer(mockService, nil)
 
-	req := &pb.RegisterRequest{}
-	req.SetUsername("testuser")
-	req.SetPassword("testpass123")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Создаем мок
+			mockService := mocks.NewAuthService(t)
 
-	resp, err := server.Register(context.Background(), req)
-	if err != nil {
-		t.Fatalf("Register() error = %v", err)
-	}
+			// Настраиваем ожидания
+			tt.setupMock(mockService)
 
-	if resp.GetAesToken() != "test-aes-token" {
-		t.Errorf("AesToken = %v, want test-aes-token", resp.GetAesToken())
-	}
-}
+			// Создаем сервер с моком
+			server := NewAuthServer(mockService, nil)
 
-func TestAuthServer_Register_Error(t *testing.T) {
-	mockService := &MockAuthService{
-		RegisterFunc: func(ctx context.Context, username, password string) (string, error) {
-			return "", lerrors.NewLEUserAlreadyExists(fmt.Errorf("user exists"), "")
-		},
-	}
-	server := NewAuthServer(mockService, nil)
+			// Формируем запрос
+			req := &pb.RegisterRequest{}
+			req.SetUsername(tt.username)
+			req.SetPassword(tt.password)
 
-	req := &pb.RegisterRequest{}
-	req.SetUsername("testuser")
-	req.SetPassword("testpass123")
+			// Выполняем тестируемую функцию
+			resp, err := server.Register(context.Background(), req)
 
-	_, err := server.Register(context.Background(), req)
-	if err == nil {
-		t.Error("Register() expected error, got nil")
-	}
+			// Проверяем результат
+			if tt.expectError {
+				require.Error(t, err, "Register() expected error, got nil")
+				if tt.errCode > 0 {
+					// Проверяем что ошибка трансформирована в gRPC статус
+					// TranslateError должен вернуть ошибку с правильным кодом
+					require.NotEmpty(t, err.Error(), "Error should not be empty")
+				}
+			} else {
+				require.NoError(t, err, "Register() error")
+				require.NotNil(t, resp, "Response should not be nil")
+				require.Equal(t, tt.expectedAES, resp.GetAesToken(), "AES token mismatch")
+			}
 
-	// Should be translated to gRPC error
-	if err.Error() == "" {
-		t.Error("Register() error should not be empty")
-	}
-}
-
-func TestAuthServer_Login_Success(t *testing.T) {
-	mockService := &MockAuthService{
-		LoginFunc: func(ctx context.Context, username, password string) (string, string, error) {
-			return "jwt-token", "aes-token", nil
-		},
-	}
-	server := NewAuthServer(mockService, nil)
-
-	req := &pb.LoginRequest{}
-	req.SetUsername("testuser")
-	req.SetPassword("testpass123")
-
-	resp, err := server.Login(context.Background(), req)
-	if err != nil {
-		t.Fatalf("Login() error = %v", err)
-	}
-
-	if resp.GetJwtToken() != "jwt-token" {
-		t.Errorf("JwtToken = %v, want jwt-token", resp.GetJwtToken())
-	}
-	if resp.GetAesToken() != "aes-token" {
-		t.Errorf("AesToken = %v, want aes-token", resp.GetAesToken())
+			// Проверяем, что все ожидания выполнены
+			mockService.AssertExpectations(t)
+		})
 	}
 }
 
-func TestAuthServer_Login_InvalidCredentials(t *testing.T) {
-	mockService := &MockAuthService{
-		LoginFunc: func(ctx context.Context, username, password string) (string, string, error) {
-			return "", "", lerrors.NewLEUserWrongPassword(fmt.Errorf("invalid credentials"), "invalid credentials")
+func TestAuthServer_Login(t *testing.T) {
+	tests := []struct {
+		name        string
+		username    string
+		password    string
+		setupMock   func(*mocks.AuthService)
+		expectError bool
+		errCode     lerrors.Status
+		expectedJWT string
+		expectedAES string
+	}{
+		{
+			name:     "Success",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				m.On("Login", mock.Anything, "testuser", "testpass123").
+					Return("jwt-token", "aes-token", nil)
+			},
+			expectError: false,
+			expectedJWT: "jwt-token",
+			expectedAES: "aes-token",
+		},
+		{
+			name:     "WrongPassword",
+			username: "testuser",
+			password: "wrongpass",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEUserWrongPassword(fmt.Errorf("invalid credentials"), "invalid credentials")
+				m.On("Login", mock.Anything, "testuser", "wrongpass").
+					Return("", "", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StUserWrongPassword,
+		},
+		{
+			name:     "UserNotFound",
+			username: "nonexistent",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEUserWrongPassword(fmt.Errorf("user not found"), "user not found")
+				m.On("Login", mock.Anything, "nonexistent", "testpass123").
+					Return("", "", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StUserWrongPassword,
+		},
+		{
+			name:     "InternalError",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEInternalError(fmt.Errorf("db error"), "database error")
+				m.On("Login", mock.Anything, "testuser", "testpass123").
+					Return("", "", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StInternalError,
+		},
+		{
+			name:     "GenericError",
+			username: "testuser",
+			password: "testpass123",
+			setupMock: func(m *mocks.AuthService) {
+				m.On("Login", mock.Anything, "testuser", "testpass123").
+					Return("", "", errors.New("some generic error"))
+			},
+			expectError: true,
+		},
+		{
+			name:     "EmptyCredentials",
+			username: "",
+			password: "",
+			setupMock: func(m *mocks.AuthService) {
+				expectedErr := lerrors.NewLEUserWrongPassword(fmt.Errorf("empty credentials"), "empty credentials")
+				m.On("Login", mock.Anything, "", "").
+					Return("", "", expectedErr)
+			},
+			expectError: true,
+			errCode:     lerrors.StUserWrongPassword,
 		},
 	}
-	server := NewAuthServer(mockService, nil)
 
-	req := &pb.LoginRequest{}
-	req.SetUsername("testuser")
-	req.SetPassword("testpass123")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Создаем мок
+			mockService := mocks.NewAuthService(t)
 
-	_, err := server.Login(context.Background(), req)
-	if err == nil {
-		t.Error("Login() expected error, got nil")
-	}
-}
+			// Настраиваем ожидания
+			tt.setupMock(mockService)
 
-func TestAuthServer_Login_InternalError(t *testing.T) {
-	mockService := &MockAuthService{
-		LoginFunc: func(ctx context.Context, username, password string) (string, string, error) {
-			return "", "", errors.New("database connection failed")
-		},
-	}
-	server := NewAuthServer(mockService, nil)
+			// Создаем сервер с моком
+			server := NewAuthServer(mockService, nil)
 
-	req := &pb.LoginRequest{}
-	req.SetUsername("testuser")
-	req.SetPassword("testpass123")
+			// Формируем запрос
+			req := &pb.LoginRequest{}
+			req.SetUsername(tt.username)
+			req.SetPassword(tt.password)
 
-	_, err := server.Login(context.Background(), req)
-	if err == nil {
-		t.Error("Login() expected error, got nil")
+			// Выполняем тестируемую функцию
+			resp, err := server.Login(context.Background(), req)
+
+			// Проверяем результат
+			if tt.expectError {
+				require.Error(t, err, "Login() expected error, got nil")
+				if tt.errCode > 0 {
+					// Проверяем что ошибка трансформирована в gRPC статус
+					require.NotEmpty(t, err.Error(), "Error should not be empty")
+				}
+			} else {
+				require.NoError(t, err, "Login() error")
+				require.NotNil(t, resp, "Response should not be nil")
+				require.Equal(t, tt.expectedJWT, resp.GetJwtToken(), "JWT token mismatch")
+				require.Equal(t, tt.expectedAES, resp.GetAesToken(), "AES token mismatch")
+			}
+
+			// Проверяем, что все ожидания выполнены
+			mockService.AssertExpectations(t)
+		})
 	}
 }

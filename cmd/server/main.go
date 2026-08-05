@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -36,25 +35,29 @@ func main() {
 	//Инициализация логгера
 	err = logger.InitLogger(nil, config.LogLevel)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка инициализации логгера %v", err)
+		os.Exit(1)
 	}
 
 	//Подключение postgresql
 	storage, err := storage.NewStoragePGSQL(config.DatabaseDSN)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка подключения к PGSQL %v", err)
+		os.Exit(1)
 	}
 
 	//Создаем сервис AUTH
 	authService, err := service.NewAuthService(storage)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка Auth сервиса %v", err)
+		os.Exit(1)
 	}
 
 	//Создаем сервис DATA
 	dataService, err := service.NewDataService(storage)
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка Data сервиса %v", err)
+		os.Exit(1)
 	}
 
 	//JWT
@@ -65,18 +68,21 @@ func main() {
 	// Загружаем сертификат сервера
 	serverCert, err := tls.LoadX509KeyPair(config.GetServerCSR(), config.GetServerKEY())
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка чтения сертификата сервера %v", err)
+		os.Exit(1)
 	}
 
 	// Загружаем CA сертификат
 	caCert, err := os.ReadFile(config.GetCertCA())
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Error("Ошибка чтения корневого сертификата %v", err)
+		os.Exit(1)
 	}
 
 	certPool := x509.NewCertPool()
 	if !certPool.AppendCertsFromPEM(caCert) {
-		log.Fatal(fmt.Errorf("ошибка добавления CA сертификата"))
+		logger.Log.Error("ошибка добавления CA сертификата")
+		os.Exit(1)
 	}
 
 	tlsConfig := &tls.Config{
@@ -89,7 +95,7 @@ func main() {
 	listen, err := net.Listen("tcp", config.ServerHost.String())
 	if err != nil {
 		logger.Log.Error("ошибка при инициализации listener %v", err)
-		log.Fatal(err.Error())
+		os.Exit(1)
 	}
 
 	// Создаем gRPC сервер
@@ -120,7 +126,6 @@ func main() {
 		defer logger.Log.Debug("main Serve STOP")
 		if err := s.Serve(listen); err != nil {
 			logger.Log.Error("Ошибка при работе сервера %v", err)
-			log.Fatal(err.Error())
 		}
 
 		close(doneSrv)
