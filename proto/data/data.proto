@@ -1,0 +1,93 @@
+edition = "2023";
+
+package data.v1;
+
+option go_package = "./data";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+//SafeDataService - Сервис хранения зашифрованных объектов
+service SafeDataService {
+    //NewSafeData - новый зашифрованный объект
+    rpc NewSafeData(stream NewSafeDataRequest) returns (NewSafeDataResponse);
+
+    //DelSafeData - Удаление на сервере
+    rpc DelSafeData(DelSafeDataRequest) returns (google.protobuf.Empty);
+
+    //EditSafeData - Изменение на сервере
+    rpc EditSafeData(stream EditSafeDataRequest) returns (EditSafeDataResponse);
+
+    //GetSafeData - получение конкретного зашифрованного объекта
+    rpc GetSafeData(GetSafeDataRequest) returns (stream GetSafeDataResponse);
+
+    //GetSafeDataList - получение списка объектов
+    rpc GetSafeDataList(google.protobuf.Empty) returns (GetSafeDataListResponse);
+}
+
+
+//NewSafeDataRequest
+message SafeDataMeta {
+    int32 id = 1;
+    string name = 2;
+    string kind = 3;
+    int32 version = 4;
+    string checksum = 5;
+    google.protobuf.Timestamp updated=6;
+    int32 client=7;
+    bool deleted = 8;
+}
+
+message SafeDataChunk {
+    bytes data = 1;
+    int32 offset = 2;
+}
+
+message NewSafeDataRequest {
+ oneof request_type {
+    SafeDataMeta meta = 1;
+    SafeDataChunk chunk =2;
+ }
+}
+
+//NewSafeDataResponse
+message NewSafeDataResponse {
+    int32 id = 1;
+    int32 version = 2;
+    google.protobuf.Timestamp updated = 3;
+}
+
+//DelSafeDataRequest
+message DelSafeDataRequest{
+    int32 id = 1;
+    int32 version = 2;
+}
+
+//EditSafeDataRequest
+message EditSafeDataRequest{
+    oneof request_type {
+        SafeDataMeta meta = 1;
+        SafeDataChunk chunk =2;
+    }
+}
+
+//EditSafeDataResponse
+message EditSafeDataResponse{
+    int32 version = 1;
+    google.protobuf.Timestamp updated = 2;
+}
+
+message GetSafeDataRequest {
+    int32 id =1;
+}
+
+message GetSafeDataResponse {
+    oneof request_type {
+        SafeDataMeta meta = 1;
+        SafeDataChunk chunk =2;
+    }
+}
+
+message GetSafeDataListResponse{
+    repeated SafeDataMeta sobjects=1;
+}

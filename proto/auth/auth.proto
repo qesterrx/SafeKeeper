@@ -1,0 +1,38 @@
+edition = "2023";
+
+package auth.v1;
+
+option go_package = "./auth";
+
+import "google/protobuf/empty.proto";
+
+//AuthService - Сервис авторизации
+service AuthService {
+    //Register - регистрация пользователя
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+
+    //Login- авторизация пользователя
+    rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+//RegisterRequest
+message RegisterRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message RegisterResponse {
+    string aes_token = 1;
+}
+
+//LoginRequest
+message LoginRequest{
+    string username = 1;
+    string password = 2;
+}
+
+//LoginResponse
+message LoginResponse{
+    string jwt_token = 1;
+    string aes_token = 2;
+}
